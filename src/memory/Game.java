@@ -1,18 +1,23 @@
 package memory;
 
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+
+import javax.sql.DataSource;
+import javax.swing.JOptionPane;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
+import org.omg.CORBA.Context;
+
+import com.mysql.jdbc.Connection;
+import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 
 public class Game {
 	public String player = new String("Temp");
@@ -23,12 +28,14 @@ public class Game {
 	public Card oldestCard;
 	public int w;
 	public int h;
+	public Chrono chrono = new Chrono();
 
 	public Game(Shell shell) {
 		this.shell = shell;
 	}
 
 	public void init(int w, int h) {
+		chrono.start();
 		this.h = h;
 		this.w = w;
 		this.shell.setBounds(100, 100, (w*45), (h*95));
@@ -54,13 +61,18 @@ public class Game {
 				System.out.println(card.index);
 				System.out.println(card.shuffleindex);
 				System.out.println("-------");
-				turn(card);
+				try {
+					turn(card);
+				} catch (SQLException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 			}
 		}
 	};
 	
 	
-	public void turn(Card card){
+	public void turn(Card card) throws SQLException{
 		if(oldestCard != null) {
 			if(oldestCard.getState() == 1) {
 			oldestCard.setState(Card.hidden);
@@ -94,7 +106,7 @@ public class Game {
 		this.updateCards();
 	}
 
-	public void updateCards() {
+	public void updateCards() throws SQLException {
 		Boolean win = true;
 		
 		for(int i = 0 ; i < h*w ; i++) {
@@ -111,6 +123,22 @@ public class Game {
 			}
 		}
 		if(win) {
+			chrono.stop();
+			String name = JOptionPane.showInputDialog(null, "You Win, Enter your name");
+			int score = (int) ((w*h)/chrono.getDureeSec());
+			if(name != "") {
+				try {
+					Class.forName("com.mysql.jdbc.Driver");
+				} catch (ClassNotFoundException e) {
+					e.printStackTrace();
+				}  
+				Connection con=(Connection) DriverManager.getConnection("jdbc:mysql://localhost:3306/memory","root","root");  
+				con.setVerifyServerCertificate(false);
+				Statement stmt=con.createStatement(); 
+				stmt.execute("INSERT INTO score (score, nom) VALUES ("+score+","+ "\"" +name+ "\"" +")");
+				stmt.close();
+				con.close();
+			}
 			System.out.println("You Win");
 		}
 	}
